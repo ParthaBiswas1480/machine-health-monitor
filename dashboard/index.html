@@ -35,6 +35,16 @@
              border-radius: 5px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
   .ack-btn:hover { background: var(--line); }
   .badge { margin-top: 8px; color: var(--ok); font-size: 12px; font-weight: 600; }
+
+  .tiles { display: flex; gap: 12px; flex-wrap: wrap; padding: 0 28px 16px; }
+  .tile { flex: 1; min-width: 160px; padding: 14px 16px; border-radius: 10px; cursor: pointer;
+          background: var(--panel); border: 1px solid var(--line); border-left-width: 5px; }
+  .tile.good { border-left-color: var(--ok); }
+  .tile.bad { border-left-color: var(--danger); background: rgba(224, 108, 92, 0.1); }
+  .tile.selected { outline: 2px solid var(--accent); }
+  .tile-name { font-weight: 600; margin-bottom: 4px; }
+  .tile-status { font-size: 13px; color: var(--dim); }
+  .tile.bad .tile-status { color: var(--danger); }
 </style>
 </head>
 <body>
@@ -57,6 +67,8 @@
     <option value="RPM">RPM</option>
   </select>
 </div>
+
+<section class="tiles" id="tiles"></section>
 
 <main>
   <div class="panel">
@@ -155,6 +167,33 @@
       </li>`).join("");
   }
 
+  async function loadMachineStatus() {
+    const response = await fetch(`${API}/machines/status`);
+    if (!response.ok) throw new Error("status request failed: " + response.status);
+    const statuses = await response.json();
+
+    const openByMachine = {};
+    statuses.forEach((s) => { openByMachine[s.machineId] = s.openAnomalies; });
+
+    document.getElementById("tiles").innerHTML = Array.from(machineSelect.options).map((option) => {
+      const id = option.value;
+      const open = openByMachine[id] || 0;
+      const label = open > 0 ? `${open} open alert${open > 1 ? "s" : ""}` : "Healthy";
+      const selected = id === machineSelect.value ? " selected" : "";
+      return `<div class="tile ${open > 0 ? "bad" : "good"}${selected}" data-machine="${id}">
+        <div class="tile-name">${id}</div>
+        <div class="tile-status">${label}</div>
+      </div>`;
+    }).join("");
+  }
+
+  document.getElementById("tiles").addEventListener("click", (event) => {
+    const tile = event.target.closest(".tile");
+    if (!tile) return;
+    machineSelect.value = tile.dataset.machine;
+    refresh();
+  });
+
   async function acknowledge(id) {
     try {
       await fetch(`${API}/anomalies/${id}/acknowledge`, { method: "PATCH" });
@@ -166,7 +205,7 @@
 
   async function refresh() {
     try {
-      await Promise.all([loadReadings(), loadAnomalies()]);
+      await Promise.all([loadReadings(), loadAnomalies(), loadMachineStatus()]);
       setOnline(true);
     } catch (error) {
       console.error(error);

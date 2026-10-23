@@ -16,6 +16,12 @@ import java.util.List;
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
 public class DashboardController {
+        @GetMapping("/machines/status")
+    public List<MachineStatusResponse> machineStatus() {
+        return anomalyRepository.countOpenByMachine().stream()
+                .map(m -> new MachineStatusResponse(m.getMachineId(), m.getOpenCount()))
+                .toList();
+    }
 
     private final SensorReadingRepository sensorReadingRepository;
     private final AnomalyRepository anomalyRepository;
@@ -52,4 +58,5 @@ public class DashboardController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
+    
 }
